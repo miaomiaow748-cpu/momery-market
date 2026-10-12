@@ -1,0 +1,1009 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#2f271f" />
+  <meta name="description" content="走进中古市集，浏览摊位、发现物件，把喜欢的记忆带回家。" />
+  <title>中古市集 · Memory Market</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23f6e9cf'/%3E%3Cpath d='M12 29 32 13l20 16v21H12z' fill='%23b27b4e'/%3E%3Cpath d='M21 31h22v19H21z' fill='%23f8eedf'/%3E%3Ccircle cx='32' cy='41' r='3' fill='%23b27b4e'/%3E%3C/svg%3E" />
+  <style>
+    :root {
+      --ink: #33271d;
+      --ink-soft: #725b47;
+      --cream: #fff4dc;
+      --paper: #fbf0d7;
+      --gold: #bd7c40;
+      --gold-deep: #92552d;
+      --line: rgba(94, 61, 34, .25);
+      --shadow: 0 18px 48px rgba(44, 29, 18, .28);
+      --ease: cubic-bezier(.2, .8, .2, 1);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #231a13; }
+    body {
+      color: var(--ink);
+      font-family: "Iowan Old Style", "Noto Serif SC", "Songti SC", Georgia, serif;
+      overflow: hidden;
+    }
+    button { font: inherit; }
+    button:focus-visible { outline: 3px solid #f3c98c; outline-offset: 4px; }
+
+    .game {
+      position: relative;
+      width: 100vw;
+      height: 100dvh;
+      min-height: 520px;
+      overflow: hidden;
+      background: #2f271f;
+      isolation: isolate;
+    }
+    .screen {
+      position: absolute;
+      inset: 0;
+      opacity: 1;
+      visibility: visible;
+      transition: opacity .6s var(--ease), visibility .6s;
+    }
+    .screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .screen[aria-hidden="true"] { pointer-events: none; }
+
+    .loading-screen {
+      display: grid;
+      place-items: center;
+      background: url("assets/loading画面.png") center / cover no-repeat;
+    }
+    .loading-screen::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(44, 30, 17, .02), rgba(46, 28, 13, .2));
+      pointer-events: none;
+    }
+    .loading-copy {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      justify-items: center;
+      gap: 20px;
+      margin-top: 10vh;
+      text-align: center;
+      animation: floatIn 1.15s var(--ease) both;
+    }
+    .loading-kicker {
+      margin: 0;
+      color: rgba(76, 53, 28, .72);
+      font-size: clamp(13px, 1.2vw, 18px);
+      letter-spacing: .42em;
+      text-indent: .42em;
+    }
+    .loading-title {
+      margin: 0;
+      color: #5e3d24;
+      font-size: clamp(35px, 5vw, 76px);
+      font-weight: 600;
+      letter-spacing: .12em;
+      text-indent: .12em;
+      text-shadow: 0 3px 12px rgba(255, 248, 219, .55);
+    }
+    .enter-button {
+      position: relative;
+      min-width: 218px;
+      padding: 15px 28px 17px;
+      border: 1px solid rgba(123, 79, 37, .45);
+      border-radius: 999px;
+      color: #6f4728;
+      background: rgba(255, 247, 222, .68);
+      box-shadow: 0 8px 24px rgba(94, 59, 29, .15), inset 0 0 0 1px rgba(255,255,255,.45);
+      cursor: pointer;
+      font-size: clamp(16px, 1.5vw, 22px);
+      letter-spacing: .24em;
+      text-indent: .24em;
+      transition: transform .25s var(--ease), background .25s, box-shadow .25s;
+    }
+    .enter-button::after {
+      content: "";
+      position: absolute;
+      inset: 5px;
+      border: 1px solid rgba(137, 89, 41, .25);
+      border-radius: inherit;
+      pointer-events: none;
+    }
+    .enter-button:hover { transform: translateY(-3px); background: rgba(255,250,234,.9); box-shadow: 0 12px 30px rgba(94, 59, 29, .2); }
+    .enter-button:active { transform: translateY(0); }
+
+    .scene-screen { background: #d7ba8a; }
+    .scene-screen::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: var(--street-bg) center / cover no-repeat;
+      transition: filter .8s ease, opacity .6s;
+    }
+    .scene-screen.dusk::before { filter: saturate(.84) sepia(.18) brightness(.82); }
+    .scene-screen::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(33, 25, 17, .18), transparent 30%, rgba(39, 25, 14, .12));
+      pointer-events: none;
+    }
+    .scene-screen > * { position: relative; z-index: 1; }
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: clamp(18px, 3vw, 40px) clamp(18px, 4vw, 64px) 0;
+      color: #fff8e8;
+      text-shadow: 0 2px 12px rgba(33, 20, 10, .55);
+    }
+    .topbar .mode-button { margin-right: clamp(86px, 10vw, 128px); }
+    .brand-lockup { display: grid; gap: 4px; }
+    .brand-lockup strong { font-size: clamp(18px, 2.1vw, 31px); letter-spacing: .16em; font-weight: 600; }
+    .brand-lockup span { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; letter-spacing: .28em; opacity: .82; }
+    .mode-button, .back-button {
+      border: 1px solid rgba(255,248,229,.58);
+      border-radius: 999px;
+      color: #fff7e4;
+      background: rgba(50, 36, 24, .3);
+      padding: 10px 16px;
+      cursor: pointer;
+      font-size: 14px;
+      letter-spacing: .12em;
+      backdrop-filter: blur(8px);
+      transition: background .25s, transform .25s;
+    }
+    .mode-button:hover, .back-button:hover { background: rgba(50, 36, 24, .52); transform: translateY(-2px); }
+    .collection-button {
+      position: absolute;
+      top: clamp(12px, 2vw, 28px);
+      right: clamp(14px, 3vw, 42px);
+      z-index: 5;
+      width: min(8vw, 96px);
+      aspect-ratio: 1145 / 1374;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      filter: drop-shadow(0 9px 9px rgba(48, 29, 14, .28));
+      transition: transform .25s var(--ease), filter .25s;
+    }
+    .collection-button img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+    .collection-button:hover { transform: translateY(-5px) scale(1.06) rotate(2deg); filter: drop-shadow(0 16px 13px rgba(48, 29, 14, .34)); }
+    .collection-count {
+      position: absolute;
+      right: -3px;
+      bottom: 10%;
+      min-width: 22px;
+      height: 22px;
+      padding: 2px 6px;
+      border: 1px solid rgba(255,248,229,.8);
+      border-radius: 999px;
+      color: #fff8e8;
+      background: rgba(87, 53, 29, .8);
+      font: 600 12px/16px ui-sans-serif, system-ui, sans-serif;
+      text-align: center;
+      text-shadow: none;
+    }
+    .collection-count[hidden] { display: none; }
+    .scene-instruction {
+      position: absolute;
+      top: clamp(86px, 14vh, 145px);
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 249, 231, .9);
+      font-size: clamp(14px, 1.3vw, 18px);
+      letter-spacing: .14em;
+      text-shadow: 0 2px 10px rgba(39, 25, 15, .42);
+      white-space: nowrap;
+      z-index: 2;
+    }
+    .scene-instruction::before, .scene-instruction::after { content: "✦"; margin: 0 14px; opacity: .75; }
+
+    .stall-button {
+      position: absolute;
+      z-index: 3;
+      bottom: -1%;
+      width: min(39vw, 560px);
+      aspect-ratio: 1;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      filter: drop-shadow(0 18px 18px rgba(57, 38, 19, .23));
+      transition: transform .35s var(--ease), filter .35s;
+      animation: stallReveal .95s .35s var(--ease) both;
+    }
+    .stall-button::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: 5%;
+      width: 66%;
+      height: 8%;
+      transform: translateX(-50%);
+      border-radius: 50%;
+      background: rgba(62, 39, 20, .22);
+      filter: blur(10px);
+      opacity: .5;
+      transition: opacity .3s, transform .3s;
+    }
+    /* Keep both supplied cut-outs on one tight, pale outline treatment. */
+    .stall-button img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      pointer-events: none;
+      filter: drop-shadow(0 0 1px rgba(218, 222, 219, .9));
+    }
+    /* The left cut-out carries a heavier white sticker edge in the source
+       bitmap; multiply blending visually removes that halo without changing
+       the asset, hit area, or hover behavior. */
+    .stall-left img {
+      mix-blend-mode: darken;
+      filter: none;
+    }
+    .stall-left { left: -1.6%; transform-origin: 10% 100%; animation-name: stallRevealLeft; }
+    .stall-right { right: -1.6%; transform-origin: 90% 100%; animation-name: stallRevealRight; }
+    .stall-button:hover { transform: translateY(-10px) scale(1.025); filter: drop-shadow(0 26px 24px rgba(57, 38, 19, .3)); }
+    .stall-button:hover::after { opacity: .72; transform: translateX(-50%) scaleX(1.1); }
+    .stall-label {
+      position: absolute;
+      left: 50%;
+      bottom: 17%;
+      transform: translateX(-50%) translateY(8px);
+      padding: 8px 15px 9px;
+      border: 1px solid rgba(255, 250, 231, .65);
+      border-radius: 999px;
+      color: #fff6dc;
+      background: rgba(62, 42, 25, .58);
+      font-size: clamp(13px, 1.15vw, 17px);
+      letter-spacing: .15em;
+      text-indent: .15em;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity .3s, transform .3s;
+      pointer-events: none;
+    }
+    .stall-button:hover .stall-label { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .street-footer {
+      position: absolute;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      color: rgba(255, 249, 230, .77);
+      font-size: 12px;
+      letter-spacing: .2em;
+      text-shadow: 0 2px 8px rgba(39, 25, 15, .5);
+      white-space: nowrap;
+    }
+
+    .detail-screen { background: #d6c09d center / cover no-repeat; }
+    .detail-screen::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-position: center;
+      background-size: cover;
+      background-repeat: no-repeat;
+      filter: saturate(.94) brightness(.98);
+    }
+    .detail-screen::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(30, 21, 13, .38), transparent 18%, transparent 74%, rgba(40, 24, 13, .24));
+      pointer-events: none;
+    }
+    .detail-screen > * { position: relative; z-index: 1; }
+    .detail-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      z-index: 3;
+      padding: clamp(18px, 3vw, 38px) clamp(18px, 4vw, 64px) 0;
+      color: #fff6e0;
+      text-shadow: 0 2px 12px rgba(39, 22, 11, .56);
+    }
+    .detail-title { margin: 0; font-size: clamp(20px, 2.5vw, 38px); letter-spacing: .16em; font-weight: 500; }
+    .detail-title small { display: block; margin-top: 5px; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; letter-spacing: .24em; opacity: .8; }
+    .detail-note {
+      position: absolute;
+      left: 50%;
+      top: clamp(80px, 12vh, 120px);
+      transform: translateX(-50%);
+      color: rgba(255,249,232,.9);
+      font-size: clamp(13px, 1.2vw, 17px);
+      letter-spacing: .12em;
+      text-shadow: 0 2px 8px rgba(39,22,11,.55);
+      white-space: nowrap;
+    }
+    .hotspots { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+    .hotspot {
+      position: absolute;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 18px;
+      background: transparent;
+      cursor: pointer;
+      pointer-events: auto;
+      transition: background .25s, border-color .25s, box-shadow .25s, transform .25s;
+    }
+    .hotspot::after {
+      content: "查看";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%) scale(.86);
+      padding: 8px 12px;
+      border: 1px solid rgba(255,249,227,.75);
+      border-radius: 999px;
+      color: #fff9e9;
+      background: rgba(59, 39, 22, .66);
+      font-size: 12px;
+      letter-spacing: .14em;
+      opacity: 0;
+      transition: opacity .25s, transform .25s;
+      pointer-events: none;
+    }
+    .hotspot:hover, .hotspot:focus-visible { background: rgba(255, 244, 194, .16); border-color: rgba(255, 243, 199, .72); box-shadow: 0 0 0 5px rgba(255, 241, 180, .13), 0 12px 30px rgba(55, 34, 16, .15); transform: scale(1.015); }
+    .hotspot:hover::after, .hotspot:focus-visible::after { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    .journal-hotspot, .asset-hotspot { overflow: visible; border-color: transparent; }
+    .journal-hotspot:hover, .journal-hotspot:focus-visible, .asset-hotspot:hover, .asset-hotspot:focus-visible { background: transparent; border-color: transparent; box-shadow: none; transform: none; }
+    .journal-hotspot:focus-visible, .asset-hotspot:focus-visible { outline: 2px solid rgba(255, 243, 199, .9); outline-offset: 5px; }
+    .journal-item-pop, .asset-item-pop {
+      position: absolute;
+      inset: -12%;
+      width: 124%;
+      height: 124%;
+      object-fit: contain;
+      opacity: 0;
+      transform: scale(.9) translateY(8px);
+      filter: drop-shadow(0 13px 13px rgba(55, 34, 16, .22));
+      transition: opacity .25s, transform .25s, filter .25s;
+      pointer-events: none;
+    }
+    .journal-hotspot:hover .journal-item-pop, .journal-hotspot:focus-visible .journal-item-pop, .asset-hotspot:hover .asset-item-pop, .asset-hotspot:focus-visible .asset-item-pop {
+      opacity: 1;
+      transform: scale(1.04) translateY(-8px);
+      filter: drop-shadow(0 18px 17px rgba(55, 34, 16, .28));
+    }
+    .card-independent-item { width: 88%; height: 94%; object-fit: contain; filter: drop-shadow(0 12px 10px rgba(92, 54, 25, .18)); }
+    .story-info {
+      position: absolute;
+      left: 14%;
+      top: 20%;
+      width: 31%;
+      height: 61%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 4%;
+      color: #88613e;
+      text-align: left;
+      pointer-events: none;
+      transition: opacity .25s, visibility .25s;
+    }
+    .story-info.hidden { opacity: 0; visibility: hidden; }
+    .story-info h3 { margin: 0 0 13px; font-size: clamp(17px, 1.8vw, 27px); font-weight: 500; letter-spacing: .1em; text-align: center; }
+    .story-info p { margin: 0; width: 100%; max-height: 100%; overflow: auto; scrollbar-width: none; font-size: clamp(12px, 1.05vw, 16px); line-height: 1.7; letter-spacing: .035em; text-indent: 2em; }
+    .story-info p::-webkit-scrollbar { display: none; }
+
+    .gift-layer {
+      position: absolute;
+      z-index: 6;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      pointer-events: auto;
+      animation: giftFade .7s var(--ease) both;
+    }
+    .gift-layer::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background: radial-gradient(circle at 50% 43%, rgba(24, 16, 10, .24), rgba(14, 9, 7, .56));
+      backdrop-filter: blur(2.5px) saturate(.78);
+      animation: giftShade .7s var(--ease) both;
+      pointer-events: none;
+    }
+    .gift-layer.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .gift-art { width: min(34vw, 370px); max-height: 66vh; object-fit: contain; filter: drop-shadow(0 24px 25px rgba(43,25,12,.32)); animation: giftPop .9s .08s var(--ease) both; pointer-events: auto; cursor: pointer; }
+    .gift-art:hover { animation: giftFloat 1.1s ease-in-out infinite alternate; filter: drop-shadow(0 30px 28px rgba(43,25,12,.4)); }
+    .gift-art.is-collecting { animation: none; transform: translate(41vw, -38vh) scale(.14) rotate(12deg); opacity: 0; transition: transform .5s var(--ease), opacity .5s; }
+    .gift-copy { position: absolute; z-index: 1; top: 17%; display: grid; justify-items: center; color: #fff4d5; text-align: center; text-shadow: 0 2px 12px rgba(39,22,11,.58); }
+    .gift-copy strong { font-size: clamp(27px, 3.2vw, 48px); font-weight: 500; letter-spacing: .22em; text-indent: .22em; }
+    .gift-copy span { margin-top: 10px; font-size: clamp(13px, 1.2vw, 17px); letter-spacing: .13em; }
+    .gift-dismiss { position: absolute; z-index: 0; inset: 0; cursor: pointer; pointer-events: auto; }
+    .gift-copy { pointer-events: none; }
+    .gift-art { position: relative; z-index: 1; }
+
+    .collection-screen {
+      overflow: auto;
+      background: #fbf1dc url("assets/个人收集藏品库背景.png") center / cover no-repeat;
+      color: #76553b;
+    }
+    .collection-screen::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,249,232,.12), rgba(255,246,224,.2));
+      pointer-events: none;
+    }
+    .collection-screen > * { position: relative; z-index: 1; }
+    .collection-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: clamp(18px, 3vw, 38px) clamp(18px, 4vw, 64px) 0;
+    }
+    .collection-title-wrap { text-align: center; margin: 0 auto; transform: translateX(-1.5vw); }
+    .collection-title-wrap h2 { margin: 0; font-size: clamp(24px, 3vw, 44px); font-weight: 500; letter-spacing: .16em; }
+    .collection-title-wrap span { display: block; margin-top: 6px; font: 11px/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: .3em; opacity: .72; }
+    .collection-back { border: 1px solid rgba(126, 85, 53, .55); border-radius: 999px; padding: 10px 16px; color: #765136; background: rgba(255, 249, 232, .64); cursor: pointer; font-size: 14px; letter-spacing: .12em; box-shadow: 0 5px 14px rgba(118, 77, 40, .1); transition: background .25s, transform .25s; }
+    .collection-back:hover { background: rgba(255, 252, 241, .92); transform: translateY(-2px); }
+    .collection-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: clamp(8px, 1.8vw, 22px);
+      width: min(88vw, 1120px);
+      max-height: calc(100dvh - 145px);
+      margin: clamp(28px, 5vh, 62px) auto 34px;
+      padding: 12px 18px 30px;
+      overflow: auto;
+      align-content: start;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(126, 85, 53, .34) transparent;
+    }
+    .collection-item { min-width: 0; min-height: clamp(105px, 13vw, 172px); margin: 0; display: grid; place-items: center; }
+    .collection-item img { width: 100%; height: clamp(105px, 13vw, 172px); object-fit: contain; filter: drop-shadow(0 10px 9px rgba(92, 54, 25, .18)); transition: transform .25s var(--ease), filter .25s; }
+    .collection-item:hover img { transform: translateY(-7px) scale(1.06) rotate(1deg); filter: drop-shadow(0 17px 13px rgba(92, 54, 25, .26)); }
+    .collection-empty { grid-column: 1 / -1; margin: 12vh 0 0; color: rgba(118, 85, 59, .8); font-size: clamp(16px, 1.5vw, 22px); letter-spacing: .12em; text-align: center; }
+
+    .modal {
+      position: absolute;
+      z-index: 20;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 30px;
+      background: rgba(38, 24, 15, .64);
+      backdrop-filter: blur(7px);
+      opacity: 1;
+      visibility: visible;
+      transition: opacity .35s, visibility .35s;
+    }
+    .modal.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .modal-close {
+      position: absolute;
+      top: max(20px, env(safe-area-inset-top));
+      right: max(20px, env(safe-area-inset-right));
+      z-index: 3;
+      width: 43px;
+      height: 43px;
+      border: 1px solid rgba(255,248,229,.68);
+      border-radius: 50%;
+      color: #fff7e0;
+      background: rgba(47, 30, 18, .42);
+      cursor: pointer;
+      font-size: 22px;
+      line-height: 1;
+      transition: transform .25s, background .25s;
+    }
+    .modal-close:hover { transform: rotate(8deg); background: rgba(47,30,18,.7); }
+    .card-stage {
+      position: relative;
+      width: min(94vw, 1180px);
+      aspect-ratio: 1536 / 1024;
+      filter: drop-shadow(0 24px 35px rgba(24,14,8,.28));
+      animation: cardIn .5s var(--ease) both;
+    }
+    .card-base { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+    .card-item {
+      position: absolute;
+      left: 56.5%;
+      top: 31%;
+      width: 28%;
+      height: 39%;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border-radius: 18px;
+    }
+    .card-item .crop { width: 80%; max-height: 100%; }
+    .card-info {
+      position: absolute;
+      left: 56.5%;
+      top: 69.5%;
+      width: 28%;
+      color: #88613e;
+      text-align: center;
+      pointer-events: none;
+    }
+    .card-info h2 { margin: 0; font-size: clamp(14px, 1.45vw, 22px); font-weight: 500; letter-spacing: .1em; }
+    .card-info p { margin: 4px auto 0; max-width: 95%; font-size: clamp(10px, .75vw, 12px); line-height: 1.45; opacity: .92; }
+    .card-price {
+      position: absolute;
+      left: 67%;
+      top: 81.2%;
+      width: 9%;
+      margin: 0 !important;
+      color: #88613e;
+      text-align: center;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: clamp(16px, 1.6vw, 26px) !important;
+      font-weight: 600;
+      letter-spacing: .04em;
+      line-height: .95;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .buy-button {
+      position: absolute;
+      right: 15.2%;
+      bottom: 5.2%;
+      padding: 11px 22px 12px;
+      border: 1px solid rgba(134, 87, 44, .54);
+      border-radius: 999px;
+      color: #7b512e;
+      background: rgba(255, 248, 228, .8);
+      cursor: pointer;
+      font-size: clamp(13px, 1.2vw, 17px);
+      letter-spacing: .13em;
+      box-shadow: 0 5px 14px rgba(118, 77, 40, .15);
+      transition: transform .25s, background .25s, box-shadow .25s;
+    }
+    .buy-button:hover { transform: translateY(-3px); background: #fffaf0; box-shadow: 0 8px 18px rgba(118,77,40,.22); }
+
+    .crop { position: relative; overflow: hidden; aspect-ratio: var(--crop-ratio, 1); }
+    .crop-sheet { position: absolute; max-width: none; width: calc(1536 / var(--crop-w) * 100%); height: auto; left: 0; top: 0; transform: translate(var(--crop-tx), var(--crop-ty)); }
+    .toast { position: fixed; left: 50%; bottom: 35px; z-index: 40; transform: translate(-50%, 20px); padding: 11px 16px; border: 1px solid rgba(255,249,229,.5); border-radius: 999px; color: #fff4dd; background: rgba(49,32,19,.76); font-size: 13px; letter-spacing: .1em; opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none; }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    @keyframes floatIn { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes stallRevealLeft { from { opacity: 0; transform: translateX(-28%) translateY(7%) scale(.95); } to { opacity: 1; transform: translateX(0) translateY(0) scale(1); } }
+    @keyframes stallRevealRight { from { opacity: 0; transform: translateX(28%) translateY(7%) scale(.95); } to { opacity: 1; transform: translateX(0) translateY(0) scale(1); } }
+    @keyframes cardIn { from { opacity: 0; transform: translateY(18px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes giftFade { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes giftShade { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes giftPop { from { transform: scale(.82) rotate(-3deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
+    @keyframes giftFloat { from { transform: translateY(-4px) rotate(-1deg) scale(1.02); } to { transform: translateY(-18px) rotate(2deg) scale(1.08); } }
+
+    @media (max-width: 760px) {
+      .game { min-height: 470px; }
+      .loading-copy { margin-top: 13vh; }
+      .loading-kicker { letter-spacing: .24em; }
+      .loading-title { font-size: clamp(30px, 9vw, 58px); }
+      .scene-instruction { top: 105px; font-size: 12px; letter-spacing: .07em; }
+      .scene-instruction::before, .scene-instruction::after { margin: 0 5px; }
+      .stall-button { width: min(59vw, 400px); bottom: 1%; }
+      .stall-left { left: -11%; }
+      .stall-right { right: -11%; }
+      .stall-label { bottom: 14%; font-size: 12px; padding: 7px 10px; }
+      .street-footer { bottom: 10px; font-size: 10px; letter-spacing: .12em; }
+      .detail-header { padding-top: 18px; }
+      .detail-title { font-size: 18px; }
+      .detail-note { top: 92px; font-size: 11px; }
+      .topbar .mode-button { margin-right: 78px; }
+      .collection-button { width: 68px; top: 10px; right: 12px; }
+      .hotspot::after { content: "✦"; padding: 6px; font-size: 16px; border: 0; background: rgba(59,39,22,.48); }
+      .card-stage { width: min(96vw, 620px); }
+      .card-item { left: 56%; top: 30%; width: 30%; height: 42%; }
+      .card-info { left: 56%; top: 69%; width: 30%; }
+      .card-info h2 { font-size: clamp(12px, 3.2vw, 20px); }
+      .card-info p { display: none; }
+      .buy-button { right: 13%; bottom: -1%; padding: 9px 11px; font-size: 11px; }
+      .modal { padding: 10px; }
+      .gift-art { width: min(62vw, 330px); }
+      .gift-copy { top: 18%; }
+      .gift-copy strong { font-size: clamp(24px, 8vw, 38px); }
+      .collection-header { padding: 16px 14px 0; }
+      .collection-title-wrap { transform: translateX(0); margin-left: 12px; }
+      .collection-title-wrap h2 { font-size: 20px; letter-spacing: .1em; }
+      .collection-title-wrap span { font-size: 9px; letter-spacing: .2em; }
+      .collection-back { padding: 8px 10px; font-size: 11px; white-space: nowrap; }
+      .collection-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); width: 94vw; max-height: calc(100dvh - 112px); margin-top: 24px; padding: 8px 9px 24px; gap: 8px; }
+      .collection-item, .collection-item img { height: 27vw; min-height: 82px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="game" id="game" aria-label="中古市集小游戏">
+    <section class="screen loading-screen" id="loadingScreen" aria-label="游戏开始">
+      <div class="loading-copy">
+        <p class="loading-kicker">MEMORY MARKET</p>
+        <h1 class="loading-title">美妙的在线市集</h1>
+        <button class="enter-button" id="enterButton" type="button">点击进入…</button>
+      </div>
+    </section>
+
+    <section class="screen scene-screen hidden" id="streetScreen" aria-label="街道市集" style="--street-bg: url('assets/市集背景2.png');" aria-hidden="true">
+      <header class="topbar">
+        <div class="brand-lockup"><strong>中古市集</strong><span>WANDER · FIND · KEEP</span></div>
+        <button class="mode-button" id="modeButton" type="button" aria-pressed="false">☼ 日间</button>
+      </header>
+      <button class="collection-button" id="collectionButton" type="button" aria-label="打开个人收集藏品库">
+        <img src="assets/藏品库入口帆布包.png" alt="个人收集藏品库" />
+        <span class="collection-count" id="collectionCount" hidden>0</span>
+      </button>
+      <p class="scene-instruction">沿着街道，看看今天遇见哪一处小摊</p>
+      <button class="stall-button stall-left" data-stall="journal" type="button" aria-label="进入左侧手账文创摊">
+        <img src="assets/市集左侧手帐摊.png" alt="左侧手账文创摊" />
+        <span class="stall-label">手账文创摊 · 查看</span>
+      </button>
+      <button class="stall-button stall-right" data-stall="vintage" type="button" aria-label="进入右侧老物件摊">
+        <img src="assets/市集右侧老物件摊.png" alt="右侧老物件摊" />
+        <span class="stall-label">老物件摊 · 查看</span>
+      </button>
+      <div class="street-footer">CLICK A STALL TO BROWSE</div>
+      <div class="gift-layer hidden" id="giftLayer" aria-label="购买成功">
+        <div class="gift-dismiss" id="giftDismiss" aria-label="返回市集"></div>
+        <div class="gift-copy"><strong>打包礼物</strong><span>这份喜欢，已经替你收好啦</span></div>
+        <img class="gift-art" id="giftArt" src="assets/打包礼物.png" alt="已经打包好的礼物，点击收进藏品库" />
+      </div>
+    </section>
+
+    <section class="screen detail-screen hidden" id="detailScreen" aria-label="摊位细节" aria-hidden="true">
+      <header class="detail-header">
+        <button class="back-button" id="backButton" type="button">← 回到街道</button>
+        <h2 class="detail-title" id="detailTitle">手账文创摊<small>THE JOURNAL NOOK</small></h2>
+        <span aria-hidden="true" style="width:88px"></span>
+      </header>
+      <p class="detail-note">点击一件喜欢的物品，听听它的故事</p>
+      <div class="hotspots" id="hotspots"></div>
+    </section>
+
+    <section class="screen collection-screen hidden" id="collectionScreen" aria-label="个人收集藏品库" aria-hidden="true">
+      <header class="collection-header">
+        <button class="collection-back" id="collectionBack" type="button">← 回到市集</button>
+        <div class="collection-title-wrap">
+          <h2>个人收集藏品库</h2>
+          <span>MY COLLECTION</span>
+        </div>
+        <span aria-hidden="true" style="width:88px"></span>
+      </header>
+      <div class="collection-grid" id="collectionGrid"></div>
+    </section>
+
+    <div class="modal hidden" id="itemModal" aria-hidden="true" role="dialog" aria-modal="true" aria-label="物品介绍卡片">
+      <button class="modal-close" id="modalClose" type="button" aria-label="关闭物品介绍">×</button>
+      <div class="card-stage">
+        <img class="card-base" src="assets/物品介绍卡片.png" alt="物品介绍卡片" />
+        <div class="story-info hidden" id="storyInfo" aria-hidden="true">
+          <h3 id="storyTitle">物品故事</h3>
+          <p id="storyText"></p>
+        </div>
+        <div class="card-item" id="cardItem"></div>
+      <div class="card-info">
+        <h2 id="cardName">春日花笺</h2>
+        <p id="cardDescription">一件适合写下慢慢心事的小物。</p>
+      </div>
+      <p class="card-price" id="cardPrice">48</p>
+        <button class="buy-button" id="buyButton" type="button">确认购买并打包</button>
+      </div>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </main>
+
+  <script>
+    (() => {
+      const $ = (selector) => document.querySelector(selector);
+      const loadingScreen = $('#loadingScreen');
+      const streetScreen = $('#streetScreen');
+      const detailScreen = $('#detailScreen');
+      const collectionScreen = $('#collectionScreen');
+      const itemModal = $('#itemModal');
+      const hotspots = $('#hotspots');
+      const giftLayer = $('#giftLayer');
+      const giftArt = $('#giftArt');
+      const collectionGrid = $('#collectionGrid');
+      const collectionCount = $('#collectionCount');
+      const toast = $('#toast');
+
+      const assets = 'assets/';
+      const stalls = {
+        journal: {
+          title: '手账文创摊',
+          subtitle: 'THE JOURNAL NOOK',
+          scene: '手账文创摊正视摊位视角.png',
+          sheet: '手账文创摊独立素材.png',
+          items: [
+            { name: '左侧木框花卉画', price: '¥ 48', description: '把一小片春日装进木框，挂在每天都能看见的地方。', story: '木框画曾是小女孩送给奶奶的第一幅画，花朵颜色稚拙，奶奶却把它摆在窗边。后来女孩远行，画中花一直替她守着回家的方向。每个清晨，木框都偷偷把阳光收藏起来，等她回来时，连影子都已经学会拥抱。', asset: 'journal-items/01_左侧木框花卉画.png', zone: [4, 26, 16, 32] },
+            { name: '白色花束陶壶', price: '¥ 56', description: '晒过太阳的白瓷，和一束不会凋谢的心情。', story: '陶壶不是花瓶，是一位怕寂寞的陶土小管家。它每天把散落的雏菊排成星星，等晚归的人把烦恼交给它。花谢时它不哭，只把最后一片花瓣藏进壶底，告诉每个经过的人：温柔不会消失，只会换一种方式继续盛开。', asset: 'journal-items/02_白色花束陶壶.png', zone: [13, 17, 14, 30] },
+            { name: '木质画架花卉画', price: '¥ 62', description: '一幅摆在桌边的小花园，让房间多一点柔软。', story: '这只小画架总嫌自己不会走路，却每天替画里的花看远方。一个迷路的小孩坐到它旁边，照着画中的蓝壶找到了回家的方向。从此画架明白，站在原地也能把勇气送得很远，于是它每天都把画扶得更稳一些。', asset: 'journal-items/03_木质画架花卉画.png', zone: [36, 20, 16, 32] },
+            { name: '绿色珠宝展示板', price: '¥ 72', description: '淡淡的绿与奶油白，像午后窗台的光。', story: '绿色绒板住着三条爱串门的项链和一只爱转圈的手链。它们白天排队闪亮，夜里互相讲给主人听过的秘密。最安静的一颗珠子不会发光，却总在主人难过时贴近心口，替大家说：你已经被好好珍惜了，不必一个人逞强。', asset: 'journal-items/04_绿色珠宝展示板.png', zone: [51, 23, 17, 35] },
+            { name: '粉色花朵项链', price: '¥ 86', description: '一串带着小花的温柔，适合留给特别的日子。', story: '粉色展示板曾以为自己的任务只是让首饰漂亮，直到小女孩把第一条手工花链挂上去。那天它学会保存“第一次”的魔法：第一次勇敢，第一次道歉，第一次送礼。每条项链都像一封粉红色的小信，打开便能听见心跳。', asset: 'journal-items/05_粉色珠宝展示板.png', zone: [67, 25, 17, 36] },
+            { name: '蓝色珠宝展示板', price: '¥ 78', description: '像一小片晴朗的天空，被收进了珠子和丝带里。', story: '蓝色绒板像一片安静的海，收藏着两条项链和两只手链。主人每次远行前都会取走一件，回来时再轻轻放回。于是它知道，真正的陪伴不是永远不分开，而是无论漂到哪里，都有一个位置等你回航。', asset: 'journal-items/06_蓝色珠宝展示板.png', zone: [83, 26, 16, 35] },
+            { name: '卡片收纳木盒', price: '¥ 46', description: '把写给未来的卡片一张张收好，等灵感再次来敲门。', story: '木盒里住着一群不肯长大的小纸片，它们把生日祝福、未寄出的道歉和突然冒出的灵感叠在一起。盒盖一合，世界便安静下来；盒盖一开，所有心事争着探头。它最得意的本领，是把“差点忘记”变成“还来得及”。', asset: 'journal-items/07_卡片收纳木盒.png', zone: [14, 38, 28, 27] },
+            { name: '椭圆花卉浮雕相框', price: '¥ 52', description: '一枚带着花纹的椭圆相框，适合收藏重要的小照片。', story: '相框边缘的花纹一朵挨着一朵，像一群手拉手的小守卫。里面那枝花其实不会凋谢，因为它守护的是某人最勇敢的一天。每当主人想放弃，花心便亮一下，提醒她：你曾经开过一次，就一定还能再开。', asset: 'journal-items/08_椭圆花卉浮雕相框.png', zone: [41, 44, 14, 23] },
+            { name: '彩铅笔筒', price: '¥ 24', description: '颜色轻轻落在纸上，刚好够画一朵小花。', story: '铅笔筒里住着六个不同颜色的小伙伴，粉色爱做梦，绿色爱种树，蓝色负责冷静，黄色专门制造快乐。它们吵吵闹闹，却总能在纸上合作出一座彩色城市。那里没有“画错”，只有下一条更奇妙的路。', asset: 'journal-items/09_彩铅笔筒.png', zone: [52, 47, 10, 25] },
+            { name: '三格手链木盒', price: '¥ 68', description: '三格小木盒，把每天想戴的颜色分门别类地放好。', story: '三格木盒像一间小小旅馆，给三条手链各留了一张床。夜里它们交换珠子的秘密，白天再装作彼此不认识。主人犹豫要戴哪一条时，三间小房间同时亮起来：今天想成为谁，都可以从一颗珠子开始。', asset: 'journal-items/10_三格手链木盒.png', zone: [65, 51, 23, 22] },
+            { name: '白盆雏菊盆栽', price: '¥ 42', description: '一盆不会缺席的春天，放在书桌旁也刚刚好。', story: '这盆雏菊出生在一只白色小盆里，最大的愿望是替忙碌的人把春天留在桌角。它不会说话，却会在主人加班时悄悄抬高花朵。等人终于笑起来，它便把整盆花摇成一场很轻很轻的掌声。', asset: 'journal-items/11_白盆雏菊盆栽.png', zone: [0, 44, 14, 30] },
+            { name: '多肉盆栽', price: '¥ 32', description: '小小的叶片挤在一起，替窗台留住一点绿色。', story: '多肉小盆栽肚子圆圆，像一位不急着长大的小朋友。它把每一滴水都认真存好，把孤单藏在泥土里发芽。主人忘记浇水的日子，它也不生气，只用新叶提醒：慢一点也没关系，我还在这里，陪你一起长大。', asset: 'journal-items/12_多肉盆栽.png', zone: [14, 47, 10, 21] },
+            { name: '蓝白串珠长项链', price: '¥ 64', description: '蓝色珠子绕出一条小路，走向夏天。', story: '这条蓝白项链从不相信海会忘记浪。每颗珠子都是一段路：蓝色记住勇气，白色记住原谅。主人把它戴上时，星星吊坠会轻轻晃动，好像远方有人挥手——无论今天多长，回家的线始终握在手里。', asset: 'journal-items/13_蓝白串珠长项链.png', zone: [21, 69, 16, 25] },
+            { name: '装饰花纹笔', price: '¥ 26', description: '在纸页边缘画一圈花纹，让普通的一天也有装饰。', story: '这支笔很会装腔，金色笔帽像一顶小皇冠，花纹笔身则藏着一座秘密花园。它不只写字，还负责把普通的“今天”变成值得收藏的句子。每当主人写下愿望，笔尖便偷偷多开一朵花，让愿望有了香气。', asset: 'journal-items/14_装饰花纹笔.png', zone: [28, 66, 8, 18] },
+            { name: '粉色花边相框', price: '¥ 38', description: '给一张珍贵的小照片，留一个柔软的边框。', story: '粉色相框最擅长替快乐留座位。它把一张普通的花画围成甜甜的云朵，连悲伤经过时都会放轻脚步。主人说照片会变旧，它却悄悄回答：没关系，记忆不是靠颜色新鲜，而是靠每次想起都还会微笑。', asset: 'journal-items/15_粉色花边相框.png', zone: [33, 55, 16, 23] },
+            { name: '花朵手链浅绿托盘', price: '¥ 46', description: '一串彩色小珠子，像把春天轻轻戴在腕间。', story: '浅绿托盘每天负责照看一条爱撒娇的花朵手链。手链睡觉时，托盘把自己的柔软铺得更平；主人出门时，它又把每颗珠子排成小小的勇气。它知道，首饰真正闪亮的时刻，是被人带着去拥抱世界。', asset: 'journal-items/16_花朵手链浅绿托盘.png', zone: [2, 73, 18, 17] },
+            { name: '绿色边框卡纸叠', price: '¥ 18', description: '清新的绿色边框，给手账页面留一块呼吸的空白。', story: '这叠卡纸像一座安静的草地，每一张都留着一块空白，等一句还没说出口的话。它们不催主人写完，只把边角的花朵悄悄守好。于是“我想你”有了纸，“谢谢你”有了颜色，沉默也终于找到了落脚的地方。', asset: 'journal-items/17_绿色边框卡纸叠.png', zone: [33, 74, 15, 19] },
+            { name: '米色花卉卡纸叠', price: '¥ 18', description: '奶油色纸张上藏着细小花朵，适合写一段慢慢的话。', story: '米色卡纸叠像一沓晒过太阳的旧信，温柔得连风都舍不得翻快。花枝从角落伸出来，替每封信装上季节。有人用它写告白，有人写告别，而它始终相信：只要真心落在纸上，离开也会留下香气。', asset: 'journal-items/18_米色花卉卡纸叠.png', zone: [47, 74, 15, 19] },
+            { name: '蓝色格纹卡纸叠', price: '¥ 18', description: '蓝色格纹像晴天的桌布，让每个页面都清清爽爽。', story: '蓝色格纹卡纸喜欢把心事排得整整齐齐，像窗边晒干的小手帕。可它最珍贵的那张纸上，偏偏只有一句歪歪的“别难过”。因为真正的安慰不需要漂亮格式，只要有人愿意把一小片蓝天递到你手里。', asset: 'journal-items/19_蓝色格纹卡纸叠.png', zone: [61, 74, 15, 19] },
+            { name: '粉色格纹卡纸叠', price: '¥ 18', description: '柔和的粉色格纹，给一页手账添上轻轻的甜味。', story: '粉色卡纸叠住着一位害羞的花边小邮差。它把没说完的喜欢藏在格子里，再用一枝小花偷偷指路。每当主人写下名字，纸张就热乎乎的，仿佛知道有些心意不必大声说，也会被认真听见。', asset: 'journal-items/20_粉色格纹卡纸叠.png', zone: [75, 74, 15, 19] },
+            { name: '浅绿盆栽', price: '¥ 36', description: '一只浅绿色小盆，把桌角变成安静的花园。', story: '这株浅绿植物曾经害怕自己长得太慢，直到主人每天都给它留一小束阳光。它于是明白，成长不是和别人比赛，而是今天比昨天多展开一片叶子。现在它把最嫩的叶尖朝向主人，像在说：我们一起慢慢变好。', asset: 'journal-items/21_浅绿盆栽.png', zone: [89, 61, 11, 28] },
+            { name: '绿白花朵手链', price: '¥ 44', description: '绿白相间的小花手链，像把一束清晨戴在手腕上。', story: '绿白手链是一座戴在手腕上的小花园，绿色负责生长，白色负责祝福，粉色小花负责在低落时开门。主人每抬一次手，它就摇响一串无声铃铛。别人听不见，但主人知道，那是自己的心在给自己加油。', asset: 'journal-items/22_绿白花朵手链.png', zone: [65, 55, 11, 15] },
+            { name: '彩色花朵手链', price: '¥ 48', description: '彩色花朵串成一圈，把明亮的好心情带在身边。', story: '这条彩色手链拒绝只做一种颜色的梦。橙色想去看日落，蓝色想游过云朵，绿色想把世界种满花。它们最后都住在同一圈珠子里，提醒主人：真正独一无二的自己，不必选择只保留一种快乐。', asset: 'journal-items/23_彩色花朵手链.png', zone: [77, 55, 11, 15] }
+          ]
+        },
+        vintage: {
+          title: '老物件摊',
+          subtitle: 'THE VINTAGE TABLE',
+          scene: '老物件摊正视摊位视角.png',
+          sheet: '老物件摊独立素材.png',
+          items: [
+            { name: '白色花束陶壶', price: '¥ 68', description: '把一束旧时光的白花安静地留在窗边。', story: '这只白色陶壶原本只想装水，直到有人把一束快要低头的花交给它。它每天替花朵保管清晨的露珠，也把主人没说出口的想念藏在壶耳里。花谢之后，壶底长出一颗小小的种子，提醒大家：被认真照料过的温柔，总会留下新的春天。', asset: 'vintage-items/01_白色花束陶壶.png', zone: [63, 28, 16, 29] },
+            { name: '木质陈列架', price: '¥ 76', description: '一格一格放着小小的日子，像一座迷你博物馆。', story: '木质陈列架有四间小屋，每一层都住着不同的老朋友：松果、陶壶、花瓶和一只迷你房子。夜里它们会交换今天听见的故事，天亮后又安静地排好队。它最开心的时候，是有人打开柜门，把某件旧物重新带回生活。', asset: 'vintage-items/02_木质陈列架.png', zone: [33, 31, 20, 35] },
+            { name: '透明玻璃瓶', price: '¥ 64', description: '透明的旧玻璃，会把窗边的光也一起收藏。', story: '透明玻璃瓶最会收藏看不见的东西。它装过雨后的光、窗边的月亮，也装过一个孩子说给自己听的秘密。后来瓶里只剩一小片空气，主人仍不肯丢掉它，因为那片空气里，住着某个已经长大的人最轻的童年。', asset: 'vintage-items/03_透明玻璃瓶.png', zone: [51, 41, 10, 24] },
+            { name: '大型高脚玻璃杯', price: '¥ 52', description: '轻轻碰杯，会听见一声很久以前的清脆回响。', story: '这只高脚杯曾经参加过一场很小的庆祝：女孩第一次独自完成了远行，回家后给自己倒了半杯果汁。杯壁映出她红红的眼睛，也映出一张终于相信自己的脸。从那以后，它不等别人举杯，每当主人勇敢一次，就先替她碰响一声。', asset: 'vintage-items/04_大型高脚玻璃杯.png', zone: [46, 46, 10, 25] },
+            { name: '绿色陶壶', price: '¥ 88', description: '有一点旧、有一点温柔，适合装下两个人的下午茶。', story: '绿色陶壶每天清晨都为一只迟到的云朵烧茶。云朵总说马上就来，却常常飘到午后才出现。陶壶从不生气，只把茶温温地留着。后来主人发现，自己那些不想面对的日子，也被它耐心等成了可以慢慢喝完的一杯春天。', asset: 'vintage-items/05_绿色陶壶.png', zone: [19, 40, 16, 24] },
+            { name: '小型高脚玻璃杯', price: '¥ 48', description: '一只小小的玻璃杯，替午后的光留出位置。', story: '小高脚杯是孩子过家家时的第一位客人。它没有喝过真正的葡萄酒，却听过无数次郑重的干杯：为今天不哭，为明天敢举手，也为一只走丢后回家的小猫。杯子记住了每个愿望，直到孩子长大，仍替她把勇气举得高高的。', asset: 'vintage-items/06_小型高脚玻璃杯.png', zone: [41, 49, 9, 23] },
+            { name: '双层手链展示架', price: '¥ 72', description: '一排旧时光的闪光，等一个懂得它的人。', story: '双层展示架像一座小小的旋转木马，让每条手链都有自己的位置。白天，珠子们争着把光送给主人；夜里，它们把今天的好消息一颗颗数清楚。最不起眼的那条总排在最后，却负责提醒大家：快乐不必最大声，也值得被看见。', asset: 'vintage-items/07_双层手链展示架.png', zone: [17, 46, 25, 25] },
+            { name: '编织篮盆栽', price: '¥ 58', description: '在旧篮子里长得很好，像一个被时间偏爱的角落。', story: '编织篮里的小植物很怕被风吹散，于是把根扎进柔软的篮纹里。主人每浇一次水，它就偷偷收下一点阳光，长成圆滚滚的绿云。某天主人哭着回家，植物没有开花，只把叶子挨过去，像一把不会漏雨的小伞。', asset: 'vintage-items/08_编织篮盆栽.png', zone: [75, 37, 20, 30] },
+            { name: '绿叶陶壶', price: '¥ 62', description: '把一小片绿意带到桌边，陪你慢慢过完下午。', story: '这只陶壶曾羡慕花瓶，因为花瓶总能遇见漂亮的花。后来一粒风吹来的种子落进壶里，长成一小片森林，叶子从壶口探出来和它打招呼。陶壶终于明白，真正的美好不是等待被装饰，而是让意外也有地方生长。', asset: 'vintage-items/09_绿叶陶壶.png', zone: [6, 36, 16, 28] },
+            { name: '鸟屋木匣', price: '¥ 78', description: '一只小鸟和一间小屋，把旧木头里的故事守在一起。', story: '木匣顶上的小房子住着一只不会飞远的鸟，它们每天一起看守抽屉里的旧物。抽屉里有一枚松果、一张便签，还有主人没送出的道歉。鸟说等风来，木匣说不必急。于是那句对不起被保存得刚刚好，终于等到可以说出口的那天。', asset: 'vintage-items/10_鸟屋木匣.png', zone: [67, 53, 17, 18] },
+            { name: '木线轴双件组合', price: '¥ 34', description: '粗粗细细的线，缠住的是手作留下的耐心。', story: '两个木线轴像一对身高不同的兄妹，大线轴负责记住漫长的路，小线轴负责把破掉的地方缝回来。它们从不争谁更重要，因为每条线都要经过彼此的手。主人拿起它们修补旧衣服时，连衣角都像在说：日子有裂缝，也可以继续穿着走。', asset: 'vintage-items/11_木线轴双件组合.png', zone: [57, 43, 16, 25] },
+            { name: '老物件收纳抽屉盒', price: '¥ 46', description: '把钥匙、戒指或一颗捡来的松果放在这里。', story: '这只抽屉盒有一颗圆圆的木纽扣，像一只永远等着被敲响的门。里面住着松果、旧纸片和几件叫不出名字的小东西，它们不值钱，却各自守着一段回忆。每次抽屉被拉开，过去就探出脑袋，问主人今天过得好不好。', asset: 'vintage-items/12_老物件收纳抽屉盒.png', zone: [25, 66, 17, 17] },
+            { name: '玻璃花盒', price: '¥ 56', description: '透明的小盒子，替花朵和旧日的颜色留一盏灯。', story: '玻璃花盒把每一朵小花都安排在自己的格子里，像给季节分配了座位。春天放在左边，夏天放在右边，秋天则喜欢躲在最下面。主人以为自己收藏的是花，其实收藏的是那些曾经来过、并且没有被忘记的日子。', asset: 'vintage-items/13_玻璃花盒.png', zone: [61, 65, 18, 15] },
+            { name: '右侧空白木牌', price: '¥ 28', description: '留一块空白，等你写下属于自己的旧时光。', story: '右侧木牌一直保持空白，因为它相信第一个写上去的字必须很重要。它等过店名、祝福和一句勇敢的告白，最后等到主人写下自己的名字。那一刻木牌觉得，空白不是没有故事，而是把位置留给一个人重新认识自己。', asset: 'vintage-items/14_右侧空白木牌.png', zone: [78, 59, 16, 20] },
+            { name: '左侧空白木牌', price: '¥ 28', description: '一块安静的木牌，等一句话被好好写下。', story: '左侧木牌比另一块更早来到摊位，却总把最好的阳光让给伙伴。它自己没有名字，只有一圈温柔的木纹。后来主人在上面写了一句“欢迎回来”，每个经过的人都觉得那句话是对自己说的，木牌也因此拥有了许多位家人。', asset: 'vintage-items/15_左侧空白木牌.png', zone: [9, 59, 17, 21] },
+            { name: '左侧空白木牌', price: '¥ 28', description: '一块安静的木牌，等一句话被好好写下。', asset: 'vintage-items/15_左侧空白木牌.png', zone: [9, 59, 17, 21] },
+            { name: '松果双件组合', price: '¥ 22', description: '两枚从秋天拾来的松果，把森林的气息放在桌上。', story: '大松果和小松果来自同一片森林，却总担心会被风吹到不同的地方。被摆上摊位后，它们肩并肩守着一盏看不见的篝火。有人买走它们时，小松果悄悄滚近一点，大松果便知道：真正的家，不一定在森林，也可以在彼此身边。', asset: 'vintage-items/16_松果双件组合.png', zone: [52, 60, 12, 15] },
+            { name: '绿色花纹盘手链', price: '¥ 44', description: '浅绿色的盘子托住一圈温柔，把光留在珠子之间。', story: '绿色花纹盘是一片很浅的湖，花朵手链则是一艘停泊在湖心的小船。主人每次取走手链，湖面都会空一会儿，却不觉得寂寞，因为它知道小船正替自己去远方看看。等手链回来，盘子便把所有想念化成一圈柔和的水纹。', asset: 'vintage-items/17_绿色花纹盘手链.png', zone: [40, 69, 14, 14] },
+            { name: '白色花纹盘首饰', price: '¥ 48', description: '白色花纹盘像一朵慢慢打开的花，收好每件小首饰。', story: '白色花纹盘在夜里会变成月亮，把首饰当作一群迷路的小星星。它不催它们发光，只安安静静托住每一颗珠子。主人难过时，盘中的星星会靠近一点，像在黑暗里排成一句话：你没有走丢，我们一直认得你。', asset: 'vintage-items/18_白色花纹盘首饰.png', zone: [67, 70, 14, 15] },
+            { name: '绿色小鸟摆件', price: '¥ 32', description: '一只不急着飞走的小鸟，愿意陪你守住桌边的安静。', story: '绿色小鸟不会飞，却每天认真练习把头转向窗外。它相信只要看得够远，翅膀就会慢慢长出来。主人告诉它，自己也有不敢出发的时候，小鸟便把胸口挺得更圆。后来她真的走出了门，小鸟知道，自己已经送出了一次飞行。', asset: 'vintage-items/19_绿色小鸟摆件.png', zone: [70, 53, 9, 14] },
+            { name: '木质树形摆件', price: '¥ 36', description: '一棵掌心里的小树，把四季的影子留在木纹里。', story: '木质小树来自一根被风折下的枝条，它没有根，却把年轮里的故事保存得很好。有人摸着它说想念家乡，小树便投下一片想象中的树荫。它不能替谁回到原来的森林，却能让远方的人在掌心里，短暂地乘凉。', asset: 'vintage-items/20_木质树形摆件.png', zone: [76, 65, 8, 13] },
+            { name: '房屋绿书摆件', price: '¥ 106', description: '一本绿色的旧书上住着一栋小屋，给想象留一盏灯。', story: '小房子住在两本绿色书上，每晚翻一页，就会多一扇窗。书读到最后一章时，房子已经亮起许多盏灯，里面住满了主人曾经想成为的人。它告诉主人，理想不是遥远的城堡，而是每天读一页、再往前走一点的家。', asset: 'vintage-items/21_房屋绿书摆件.png', zone: [84, 72, 15, 18] },
+            { name: '迷你木屋摆件', price: '¥ 42', description: '两栋掌心里的小屋，替远方的人留一扇亮着的窗。', story: '迷你木屋只有巴掌大，却坚持留着一把看不见的备用钥匙。它说，总有人走了很久，才想起自己可以回家。每当主人把它放在桌角，木屋就把门口擦得亮亮的，仿佛在等一个疲惫的人推门进来，先喝一口热水。', asset: 'vintage-items/22_迷你木屋摆件.png', zone: [36, 38, 12, 13] },
+            { name: '米白钩针桌垫', price: '¥ 36', description: '一块柔软的旧蕾丝，给餐桌加上一点慢生活。', story: '这块钩针桌垫是由许多圈慢慢绕成的，像奶奶把一句句“别着凉”藏进了线里。杯子放上去时，它替桌面挡住烫意；夜深时，它也替主人托住一盏孤单的灯。每一针都很小，却合起来铺成了回家的路。', asset: 'vintage-items/23_米白钩针桌垫.png', zone: [2, 71, 25, 21] },
+            { name: '花边卡纸叠', price: '¥ 24', description: '一叠带着花边的纸，把还没说出口的话轻轻托住。', story: '花边卡纸叠像一沓没有寄出的信，每张纸都替主人留着一块柔软的空白。有人在上面写谢谢，有人写再见，还有人只画了一朵小花。它们从不追问收信人是谁，只相信真心落下的地方，就已经开始发光。', asset: 'vintage-items/24_花边卡纸叠.png', zone: [49, 72, 15, 14] },
+            { name: '白色花枝', price: '¥ 26', description: '几枝白花从旧日里伸出来，替房间添一点清亮。', story: '白色花枝是一群很有耐心的小伙伴，花瓣落下时，它们不急着告别，而是把香气留在空气里。主人把它们插进本子旁边，写下一个新计划。花枝轻轻晃动，像在说：不用一次长成森林，今天先开出一朵就好。', asset: 'vintage-items/25_白色花枝.png', zone: [69, 26, 11, 21] },
+            { name: '白花玻璃花瓶', price: '¥ 58', description: '玻璃瓶里的白花像一小束被阳光保存的问候。', story: '玻璃花瓶曾经害怕自己太透明，什么心事都藏不住。直到一束白花住进来，它才发现透明也能保护温柔：水位、根须和每一次新芽，都被看见，也被认真照顾。后来主人把眼泪放在瓶边，花瓶替她把悲伤照得很轻。', asset: 'vintage-items/26_白花玻璃花瓶.png', zone: [85, 57, 12, 23] },
+            { name: '麻绳捆扎礼盒', price: '¥ 40', description: '被麻绳认真系好的小礼物，打开前就已经很有心意。', story: '礼盒外的麻绳打了一个不太标准的结，是小孩第一次学着包装礼物时留下的。很多年后，盒子里换过明信片、种子和一枚旧纽扣，绳结却一直没有拆开。因为它捆住的从来不是物品，而是每次想把爱送出去的决心。', asset: 'vintage-items/27_麻绳捆扎礼盒.png', zone: [27, 56, 13, 16] }
+          ]
+        }
+      };
+
+      let activeStall = 'journal';
+      let selectedItem = null;
+      let pendingGiftItem = null;
+      let toastTimer;
+      const collectionStorageKey = 'memory-market-collection-v1';
+      let collectedItems = loadCollectedItems();
+
+      function showScreen(screen) {
+        [loadingScreen, streetScreen, detailScreen, collectionScreen].forEach((el) => {
+          const isActive = el === screen;
+          el.classList.toggle('hidden', !isActive);
+          el.setAttribute('aria-hidden', String(!isActive));
+        });
+      }
+
+      function loadCollectedItems() {
+        try {
+          const parsed = JSON.parse(window.localStorage.getItem(collectionStorageKey) || '[]');
+          return Array.isArray(parsed) ? parsed.filter((item) => item && typeof item.name === 'string' && typeof item.asset === 'string') : [];
+        } catch (error) {
+          return [];
+        }
+      }
+
+      function saveCollection() {
+        try { window.localStorage.setItem(collectionStorageKey, JSON.stringify(collectedItems)); } catch (error) { /* Storage can be unavailable in private contexts. */ }
+      }
+
+      function updateCollectionCount() {
+        collectionCount.textContent = String(collectedItems.length);
+        collectionCount.hidden = collectedItems.length === 0;
+      }
+
+      function renderCollection() {
+        collectionGrid.innerHTML = '';
+        if (!collectedItems.length) {
+          const empty = document.createElement('p');
+          empty.className = 'collection-empty';
+          empty.textContent = '还没有收藏物件，去市集逛逛吧';
+          collectionGrid.appendChild(empty);
+          updateCollectionCount();
+          return;
+        }
+        collectedItems.forEach((item) => {
+          const figure = document.createElement('figure');
+          figure.className = 'collection-item';
+          const image = document.createElement('img');
+          image.src = assets + item.asset;
+          image.alt = item.name;
+          image.loading = 'lazy';
+          figure.appendChild(image);
+          collectionGrid.appendChild(figure);
+        });
+        updateCollectionCount();
+      }
+
+      function addCollectedItem(item) {
+        if (!item || !item.asset) return;
+        if (!collectedItems.some((existing) => existing.asset === item.asset)) {
+          collectedItems.push({ name: item.name, asset: item.asset });
+          saveCollection();
+        }
+        renderCollection();
+      }
+
+      function openCollection() {
+        giftLayer.classList.add('hidden');
+        pendingGiftItem = null;
+        showScreen(collectionScreen);
+        renderCollection();
+      }
+
+      function closeCollection() {
+        showScreen(streetScreen);
+        showToast('回到街道');
+      }
+
+      function showToast(message) {
+        clearTimeout(toastTimer);
+        toast.textContent = message;
+        toast.classList.add('show');
+        toastTimer = setTimeout(() => toast.classList.remove('show'), 2100);
+      }
+
+      function cropMarkup(stall, item, className = 'crop') {
+        const [x, y, w, h] = item.crop;
+        return '<div class="' + className + '" style="--crop-x:' + x + ';--crop-y:' + y + ';--crop-w:' + w + ';--crop-h:' + h + ';--crop-tx:-' + (x / 1536 * 100).toFixed(4) + '%;--crop-ty:-' + (y / 1024 * 100).toFixed(4) + '%;--crop-ratio:' + (w / h).toFixed(3) + '">' +
+          '<img class="crop-sheet" src="' + assets + stall.sheet + '" alt="' + item.name + '" />' +
+          '</div>';
+      }
+
+      function openStall(key) {
+        activeStall = key;
+        const stall = stalls[key];
+        detailScreen.style.setProperty('--detail-bg', 'url("' + assets + stall.scene + '")');
+        detailScreen.style.setProperty('--detail-sheet', 'url("' + assets + stall.sheet + '")');
+        detailScreen.style.setProperty('background-image', 'url("' + assets + stall.scene + '")');
+        detailScreen.querySelector('.detail-title').innerHTML = stall.title + '<small>' + stall.subtitle + '</small>';
+        hotspots.innerHTML = '';
+        stall.items.forEach((item, index) => {
+          const [left, top, width, height] = item.zone;
+          const button = document.createElement('button');
+          button.className = 'hotspot' + (item.asset ? (key === 'journal' ? ' journal-hotspot' : ' asset-hotspot') : '');
+          button.type = 'button';
+          button.setAttribute('aria-label', '查看' + item.name);
+          button.dataset.itemIndex = String(index);
+          button.style.left = left + '%';
+          button.style.top = top + '%';
+          button.style.width = width + '%';
+          button.style.height = height + '%';
+          button.style.zIndex = String(5 + index);
+          if (item.asset) {
+            const image = document.createElement('img');
+            image.className = key === 'journal' ? 'journal-item-pop' : 'asset-item-pop';
+            image.src = assets + item.asset;
+            image.alt = '';
+            image.setAttribute('aria-hidden', 'true');
+            button.appendChild(image);
+          }
+          button.addEventListener('click', () => openItem(item));
+          hotspots.appendChild(button);
+        });
+        showScreen(detailScreen);
+      }
+
+      function formatPrice(value) {
+        return String(value == null ? '' : value).replace(/[^\d.]/g, '');
+      }
+
+      function openItem(item) {
+        selectedItem = item;
+        const stall = stalls[activeStall];
+        const storyInfo = $('#storyInfo');
+        const hasStory = Boolean(item.story);
+        storyInfo.classList.toggle('hidden', !hasStory);
+        storyInfo.setAttribute('aria-hidden', String(!hasStory));
+        if (hasStory) {
+          $('#storyTitle').textContent = item.name;
+          $('#storyText').textContent = item.story;
+        }
+        $('#cardItem').innerHTML = item.asset
+          ? '<img class="card-independent-item" src="' + assets + item.asset + '" alt="' + item.name + '" />'
+          : cropMarkup(stall, item);
+        $('#cardName').textContent = item.name;
+        $('#cardDescription').textContent = item.description;
+        $('#cardPrice').textContent = formatPrice(item.price);
+        itemModal.classList.remove('hidden');
+        itemModal.setAttribute('aria-hidden', 'false');
+        $('#modalClose').focus();
+      }
+
+      function closeItem() {
+        itemModal.classList.add('hidden');
+        itemModal.setAttribute('aria-hidden', 'true');
+        selectedItem = null;
+      }
+
+      function returnToStreet() {
+        closeItem();
+        hotspots.innerHTML = '';
+        activeStall = 'journal';
+        giftLayer.classList.add('hidden');
+        showScreen(streetScreen);
+        showToast('回到街道');
+      }
+
+      $('#enterButton').addEventListener('click', () => {
+        showScreen(streetScreen);
+        showToast('欢迎来到中古市集');
+      });
+
+      document.querySelectorAll('.stall-button').forEach((button) => {
+        button.addEventListener('click', () => openStall(button.dataset.stall));
+      });
+
+      $('#backButton').addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        returnToStreet();
+      });
+      $('#modalClose').addEventListener('click', closeItem);
+      itemModal.addEventListener('click', (event) => { if (event.target === itemModal) closeItem(); });
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') {
+          if (!itemModal.classList.contains('hidden')) closeItem();
+          else if (!collectionScreen.classList.contains('hidden')) closeCollection();
+          else if (!detailScreen.classList.contains('hidden')) returnToStreet();
+        }
+      });
+
+      $('#buyButton').addEventListener('click', () => {
+        pendingGiftItem = selectedItem;
+        closeItem();
+        showScreen(streetScreen);
+        giftArt.classList.remove('is-collecting');
+        giftLayer.classList.remove('hidden');
+        showToast('已装进你的市集手提袋');
+      });
+
+      giftArt.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (!pendingGiftItem) return;
+        addCollectedItem(pendingGiftItem);
+        pendingGiftItem = null;
+        giftArt.classList.add('is-collecting');
+        showToast('已收到藏品');
+        window.setTimeout(() => {
+          giftLayer.classList.add('hidden');
+          giftArt.classList.remove('is-collecting');
+        }, 500);
+      });
+      $('#giftDismiss').addEventListener('click', () => {
+        pendingGiftItem = null;
+        giftLayer.classList.add('hidden');
+      });
+      $('#collectionButton').addEventListener('click', openCollection);
+      $('#collectionBack').addEventListener('click', closeCollection);
+
+      $('#modeButton').addEventListener('click', () => {
+        const dusk = streetScreen.classList.toggle('dusk');
+        streetScreen.style.setProperty('--street-bg', dusk ? "url('assets/市集背景.png')" : "url('assets/市集背景2.png')");
+        $('#modeButton').textContent = dusk ? '☾ 暮色' : '☼ 日间';
+        $('#modeButton').setAttribute('aria-pressed', String(dusk));
+        showToast(dusk ? '暮色慢慢落进街道' : '阳光回到街道');
+      });
+
+      updateCollectionCount();
+    })();
+  </script>
+</body>
+</html>
